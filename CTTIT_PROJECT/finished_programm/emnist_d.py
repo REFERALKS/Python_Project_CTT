@@ -15,8 +15,8 @@ import matplotlib.pyplot as plt
 import tqdm
 
 # Параметры
-DATA_ROOT = "D:\проекты\python_project\models"
 MODEL_FILE = "emnist_autoencoder_vscode.pth"
+DATA_ROOT = "./data"
 BATCH = 128
 EPOCHS = 12
 LR = 1e-3
