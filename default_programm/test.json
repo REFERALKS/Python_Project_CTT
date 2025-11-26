@@ -1,0 +1,20 @@
+{
+    "students": [
+        {
+            "name": "Капорин Денис",
+            "grades": [
+                {"subject": "Математика", "score": 90},
+                {"subject": "Физика", "score": 85},
+                {"subject": "Химия", "score": 73}
+            ]
+        },
+        {
+            "name": "Лаптунов Максим",
+            "grades": [
+                {"subject": "Математика", "score": 83},
+                {"subject": "Физика", "score": 68},
+                {"subject": "Химия", "score": 96}
+            ]
+        }
+    ]
+}
