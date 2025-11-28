@@ -1,63 +1,80 @@
 import streamlit as st
-import ollama  # Импортируем библиотеку для связи с локальной Ollama
+import ollama
 
-st.title("Локальный Чат (Ollama)")
+# --- 1. Настройка интерфейса и Session State ---
 
-# --- ЧАСТЬ 1: Настройки (Sidebar) ---
-st.sidebar.title("Настройки")
-# Важно: введите точное имя модели, как оно отображается в 'ollama list'
-# Я поставил значение по умолчанию, но проверьте его у себя в терминале
-model_name = st.sidebar.text_input("Имя модели в Ollama", value="gpt-oss:20b")
+st.title("Чат с локальной моделью (Ollama)")
+st.caption("Подключено к локальной LLM через Ollama")
 
-# Кнопка очистки истории
+# --- Настройки в Sidebar ---
+st.sidebar.title("Настройки Ollama")
+
+# Поле для ввода имени модели. По умолчанию 'gpt-oss-20b'
+model_name = st.sidebar.text_input(
+    "Имя модели в Ollama", 
+    value="gpt-oss:20b",
+    help="Проверьте точное имя командой 'ollama list'"
+)
+
+# Кнопка очистки истории (сбрасывает Session State)
 if st.sidebar.button("Очистить чат"):
     st.session_state.messages = []
+    # Перезапуск, чтобы обновить интерфейс
     st.rerun()
 
-# --- ЧАСТЬ 2: Session State ---
+# --- 2. Инициализация Session State ---
+# Создаем список сообщений, если его еще нет
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    # Добавим приветственное сообщение от ассистента
+    st.session_state.messages = [
+        {"role": "assistant", "content": f"Привет! Я готова начать. Использую модель: {model_name}"}
+    ]
 
-# --- ЧАСТЬ 3: Отображение Истории ---
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# --- 3. Отображение Истории ---
+# Проходим по истории и выводим все старые сообщения
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-# --- ЧАСТЬ 4: Ввод и Обработка (Реальный вызов Ollama) ---
-if prompt := st.chat_input("Напишите сообщение модели..."):
+# --- 4. Обработка Ввода и Вызов LLM ---
+
+# Ждем ввод от пользователя
+if prompt := st.chat_input("Ваш вопрос..."):
     
-    # 1. Показываем сообщение пользователя
+    # 4а. Отображаем сообщение пользователя и добавляем его в историю
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # 2. Получаем ответ от локальной модели
+    # 4б. Вызов LLM
     with st.chat_message("assistant"):
-        message_placeholder = st.empty()
+        message_placeholder = st.empty() # Контейнер для стриминга
         full_response = ""
         
         try:
-            # Вызов Ollama с включенным стримингом (stream=True)
-            # Мы передаем всю историю сообщений (st.session_state.messages), чтобы модель помнила контекст
+            # Вызов ollama.chat с полной историей и стримингом
             stream = ollama.chat(
                 model=model_name,
+                # Передаем всю историю для поддержания контекста
                 messages=st.session_state.messages,
                 stream=True
             )
             
-            # Читаем поток данных от модели в реальном времени
+            # Читаем поток ответа по частям (стриминг)
             for chunk in stream:
                 content = chunk['message']['content']
                 full_response += content
-                # Обновляем текст на экране (+ курсор ▌ для красоты)
+                # Динамически обновляем текст
                 message_placeholder.markdown(full_response + "▌")
             
-            # Финальный вывод без курсора
+            # Финальный вывод (убираем курсор)
             message_placeholder.markdown(full_response)
             
-            # 3. Сохраняем ответ модели в историю
+            # 4в. Сохраняем ответ модели в историю
             st.session_state.messages.append({"role": "assistant", "content": full_response})
 
         except Exception as e:
-            st.error(f"Ошибка подключения к Ollama: {e}")
-            st.info("Совет: Убедитесь, что приложение Ollama запущено, а имя модели введено верно.")
+            error_message = f"Ошибка: Не удалось подключиться к модели '{model_name}'. Проверьте, что Ollama запущен и модель загружена. Детали: {e}"
+            st.error(error_message)
+            # Если произошла ошибка, удаляем последнее сообщение пользователя, чтобы не сохранять его без ответа
+            st.session_state.messages.pop()
