@@ -1,0 +1,42 @@
+{
+  "title": "ComplexCharacter",
+  "type": "object",
+  "properties": {
+    "name": {"title": "Name", "description": "Имя персонажа.", "type": "string"},
+    "race": {"title": "Race", "description": "Раса персонажа.", "type": "string"},
+    "age": {"title": "Age", "description": "Возраст персонажа, целое число.", "type": "integer"},
+    "class": {
+      "title": "Class",
+      "description": "Вложенный объект, описывающий класс.",
+      "allOf": [{"$ref": "#/$defs/CharacterClass"}]
+    },
+    "inventory": {
+      "title": "Inventory",
+      "description": "Массив предметов в инвентаре.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/InventoryItem"}
+    }
+  },
+  "required": ["name", "race", "age", "class", "inventory"],
+  "$defs": {
+    "CharacterClass": {
+      "title": "CharacterClass",
+      "type": "object",
+      "properties": {
+        "name": {"title": "Name", "description": "Название класса (напр., 'Воин', 'Маг').", "type": "string"},
+        "level": {"title": "Level", "description": "Уровень персонажа, целое число.", "type": "integer"},
+        "specialization": {"title": "Specialization", "description": "Специализация класса.", "type": "string"}
+      },
+      "required": ["name", "level", "specialization"]
+    },
+    "InventoryItem": {
+      "title": "InventoryItem",
+      "type": "object",
+      "properties": {
+        "item_name": {"title": "Item Name", "description": "Название предмета.", "type": "string"},
+        "quantity": {"title": "Quantity", "description": "Количество этого предмета.", "type": "integer"}
+      },
+      "required": ["item_name", "quantity"]
+    }
+  }
+}
