@@ -1,12 +1,7 @@
 {
     "5178568186": {
         "role": "default",
-        "temperature": 0.3,
-        "model": "local_default"
-    },
-    "1848889256": {
-        "role": "default",
         "temperature": 0.7,
-        "model": "local_default"
+        "model": "ministral"
     }
 }
