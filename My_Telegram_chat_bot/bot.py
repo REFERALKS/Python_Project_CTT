@@ -7,7 +7,6 @@ import base64
 
 # --- CONFIG ---
 API_TOKEN = "8057312342:AAEpPXaXZdgWyfTOK3IAeTIChDNZy6pUKP0"
-MY_USER_ID = 5178568186
 HISTORY_FILE = 'history.json'
 SETTINGS_FILE = 'settings.json'
 
@@ -35,6 +34,9 @@ THINKING_INSTRUCTION = (
     "ОТВЕТ:[готовый ответ]"
 )
 
+# ==============================================
+# JSON LOAD/SAVE
+# ==============================================
 def load_json(filename, default_data):
     if os.path.exists(filename):
         try:
@@ -52,6 +54,9 @@ def save_json(filename, data):
 chat_histories = load_json(HISTORY_FILE, {})
 user_settings = load_json(SETTINGS_FILE, {})
 
+# ==============================================
+# SETTINGS
+# ==============================================
 def get_settings(user_id):
     default_cfg = {
         "role": "default",
@@ -61,14 +66,12 @@ def get_settings(user_id):
 
     if user_id not in user_settings:
         user_settings[user_id] = default_cfg.copy()
-        save_json(SETTINGS_FILE, user_settings)
     else:
-        # добавляем недостающие ключи без перезаписи существующих
-        for key, val in default_cfg.items():
+        for key, value in default_cfg.items():
             if key not in user_settings[user_id]:
-                user_settings[user_id][key] = val
-        save_json(SETTINGS_FILE, user_settings)
+                user_settings[user_id][key] = value
 
+    save_json(SETTINGS_FILE, user_settings)
     return user_settings[user_id]
 
 def get_system_prompt(user_id):
@@ -77,10 +80,12 @@ def get_system_prompt(user_id):
     return role_text + "\n" + THINKING_INSTRUCTION
 
 def init_history(user_id):
-    sys_prompt = get_system_prompt(user_id)
-    chat_histories[user_id] = [{"role": "system", "content": sys_prompt}]
+    chat_histories[user_id] = [{"role": "system", "content": get_system_prompt(user_id)}]
     save_json(HISTORY_FILE, chat_histories)
 
+# ==============================================
+# KEYBOARDS
+# ==============================================
 def main_menu_keyboard():
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
@@ -93,88 +98,71 @@ def main_menu_keyboard():
     return markup
 
 def roles_keyboard():
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    buttons = [
-        types.InlineKeyboardButton(k.capitalize(), callback_data=f"set_role_{k}")
-        for k in ROLES.keys()
-    ]
-    markup.add(*buttons)
+    markup = types.InlineKeyboardMarkup()
+    for role in ROLES.keys():
+        markup.add(types.InlineKeyboardButton(role.capitalize(), callback_data=f"set_role_{role}"))
     markup.add(types.InlineKeyboardButton("Back", callback_data="main_menu"))
     return markup
 
 def models_keyboard():
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    for friendly_name in AVAILABLE_MODELS.keys():
-        markup.add(types.InlineKeyboardButton(friendly_name, callback_data=f"set_model_{friendly_name}"))
+    markup = types.InlineKeyboardMarkup()
+    for m in AVAILABLE_MODELS.keys():
+        markup.add(types.InlineKeyboardButton(m, callback_data=f"set_model_{m}"))
     markup.add(types.InlineKeyboardButton("Back", callback_data="main_menu"))
     return markup
 
 def temp_keyboard():
-    markup = types.InlineKeyboardMarkup(row_width=3)
-    markup.add(
-        types.InlineKeyboardButton("0.1", callback_data="set_temp_0.1"),
-        types.InlineKeyboardButton("0.3", callback_data="set_temp_0.3"),
-        types.InlineKeyboardButton("0.7", callback_data="set_temp_0.7"),
-        types.InlineKeyboardButton("1.0", callback_data="set_temp_1.0"),
-        types.InlineKeyboardButton("Back", callback_data="main_menu")
-    )
+    buttons = ["0.1", "0.3", "0.7", "1.0"]
+    markup = types.InlineKeyboardMarkup()
+    for t in buttons:
+        markup.add(types.InlineKeyboardButton(t, callback_data=f"set_temp_{t}"))
+    markup.add(types.InlineKeyboardButton("Back", callback_data="main_menu"))
     return markup
 
-# --- COMMANDS ---
-
+# ==============================================
+# START COMMAND
+# ==============================================
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    if message.from_user.id != MY_USER_ID: return
-    current_model = get_settings(MY_USER_ID)["model"]
-    bot.reply_to(message, f"Панель управления.\nТекущая модель: {current_model}",
-                 reply_markup=main_menu_keyboard())
+    user_id = message.from_user.id
+    get_settings(user_id)
+    bot.reply_to(message, f"Панель управления.\n", reply_markup=main_menu_keyboard())
 
-# --- CALLBACKS ---
-
+# ==============================================
+# CALLBACKS
+# ==============================================
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     user_id = call.from_user.id
-    if user_id != MY_USER_ID: return
-
     settings = get_settings(user_id)
 
     if call.data == "main_menu":
-        bot.edit_message_text(f"Панель управления. Модель: {settings['model']}",
-                              call.message.chat.id, call.message.message_id,
+        bot.edit_message_text("Меню:", call.message.chat.id, call.message.message_id,
                               reply_markup=main_menu_keyboard())
 
     elif call.data == "new_chat":
         init_history(user_id)
-        bot.send_message(call.message.chat.id, "История очищена!",
-                         reply_markup=main_menu_keyboard())
+        bot.send_message(call.message.chat.id, "История очищена!", reply_markup=main_menu_keyboard())
 
     elif call.data == "menu_models":
-        bot.edit_message_text("Выберите модель:",
-                              call.message.chat.id, call.message.message_id,
+        bot.edit_message_text("Выберите модель:", call.message.chat.id, call.message.message_id,
                               reply_markup=models_keyboard())
 
     elif call.data.startswith("set_model_"):
-        model_key = call.data.replace("set_model_", "")
-        settings["model"] = model_key
+        settings["model"] = call.data.replace("set_model_", "")
         save_json(SETTINGS_FILE, user_settings)
-        bot.answer_callback_query(call.id, "Модель обновлена")
-        bot.edit_message_text(f"Выбрана модель: {model_key}",
-                              call.message.chat.id, call.message.message_id,
+        bot.edit_message_text("Модель установлена.", call.message.chat.id, call.message.message_id,
                               reply_markup=main_menu_keyboard())
 
     elif call.data == "menu_roles":
-        bot.edit_message_text("Выберите роль:",
-                              call.message.chat.id, call.message.message_id,
+        bot.edit_message_text("Выберите роль:", call.message.chat.id, call.message.message_id,
                               reply_markup=roles_keyboard())
 
     elif call.data.startswith("set_role_"):
-        new_role = call.data.replace("set_role_", "")
-        settings["role"] = new_role
+        settings["role"] = call.data.replace("set_role_", "")
         save_json(SETTINGS_FILE, user_settings)
         init_history(user_id)
-        bot.answer_callback_query(call.id, "Роль установлена")
-        bot.edit_message_text(f"Роль: {new_role}",
-                              call.message.chat.id, call.message.message_id,
+        bot.edit_message_text("Роль изменена!", call.message.chat.id, call.message.message_id,
                               reply_markup=main_menu_keyboard())
 
     elif call.data == "menu_temp":
@@ -183,34 +171,29 @@ def callback_handler(call):
                               reply_markup=temp_keyboard())
 
     elif call.data.startswith("set_temp_"):
-        new_temp = float(call.data.replace("set_temp_", ""))
-        settings["temperature"] = new_temp
+        settings["temperature"] = float(call.data.replace("set_temp_", ""))
         save_json(SETTINGS_FILE, user_settings)
-        bot.answer_callback_query(call.id, "Температура обновлена")
-        bot.edit_message_text(f"Температура: {new_temp}",
-                              call.message.chat.id, call.message.message_id,
+        bot.edit_message_text("Температура обновлена.", call.message.chat.id, call.message.message_id,
                               reply_markup=main_menu_keyboard())
 
     elif call.data == "show_history":
-        history = chat_histories.get(user_id, [])
-        bot.send_message(call.message.chat.id, f"Сообщений в памяти: {len(history)}")
+        hist = chat_histories.get(user_id, [])
+        bot.send_message(call.message.chat.id, f"Сообщений в памяти: {len(hist)}", reply_markup=main_menu_keyboard())
 
-# --- MESSAGE HANDLER ---
-
+# ==============================================
+# MESSAGE HANDLER
+# ==============================================
 @bot.message_handler(content_types=['text', 'photo'])
 def handle_message(message):
-    if message.from_user.id != MY_USER_ID: return
-
     user_id = message.from_user.id
     if user_id not in chat_histories:
         init_history(user_id)
 
     history = chat_histories[user_id]
     settings = get_settings(user_id)
-
     model_api_name = AVAILABLE_MODELS.get(settings["model"], "local-model")
 
-    loading = bot.reply_to(message, f"Модель: {settings['model']} — Думает...")
+    loading = bot.reply_to(message, "⏳ Думаю...")
 
     try:
         if message.photo:
@@ -219,7 +202,7 @@ def handle_message(message):
             base64_image = base64.b64encode(downloaded).decode('utf-8')
             user_content = [
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
-                {"type": "text", "text": message.caption or "Опиши изображение"}
+                {"type": "text", "text": message.caption or "Опиши картинку"}
             ]
         else:
             user_content = message.text
@@ -239,13 +222,24 @@ def handle_message(message):
             response = response.split("ОТВЕТ:")[1]
 
         bot.delete_message(message.chat.id, loading.message_id)
-        bot.send_message(message.chat.id, response)
+
+        MAX_LENGTH = 4000
+        if len(response) > MAX_LENGTH:
+            chunks = [response[i:i + MAX_LENGTH] for i in range(0, len(response), MAX_LENGTH)]
+            for chunk in chunks[:-1]:
+                bot.send_message(message.chat.id, chunk)
+            bot.send_message(message.chat.id, chunks[-1], reply_markup=main_menu_keyboard())
+        else:
+            bot.send_message(message.chat.id, response, reply_markup=main_menu_keyboard())
 
         history.append({"role": "assistant", "content": response})
         save_json(HISTORY_FILE, chat_histories)
 
     except Exception as e:
-        bot.edit_message_text(f"Ошибка: {e}", message.chat.id, loading.message_id)
+        try:
+            bot.edit_message_text(f"Ошибка: {e}", message.chat.id, loading.message_id)
+        except:
+            bot.send_message(message.chat.id, f"Ошибка: {e}", reply_markup=main_menu_keyboard())
 
 print("BOT READY ✔")
 bot.polling(non_stop=True)
