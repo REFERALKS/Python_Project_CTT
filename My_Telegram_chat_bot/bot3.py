@@ -27,7 +27,7 @@ bot = telebot.TeleBot(API_TOKEN)
 client = OpenAI(base_url=BASE_URL, api_key="lm-studio")
 
 ROLES = {
-    "default": "Ты полезный ассистент.",
+    "default": "Ты полезный ассистент.Отвечай кратко и по делу",
     "coder": "Ты senior python разработчик.",
     "translator": "Ты переводчик.",
     "physicist": "Ты профессор физики.",
