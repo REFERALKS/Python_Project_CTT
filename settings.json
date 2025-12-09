@@ -2,6 +2,11 @@
     "5178568186": {
         "role": "default",
         "temperature": 0.7,
-        "model": "ministral"
+        "model": "local_default"
+    },
+    "5178568186": {
+        "role": "default",
+        "temperature": 0.7,
+        "model": "local_default"
     }
 }
